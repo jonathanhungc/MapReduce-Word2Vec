@@ -1,1 +1,27 @@
-[0m[[0m[0mdebug[0m] [0m[0mJar uptodate: /Users/jonathanhung/uic-code/cs441/homework1/target/scala-2.13/homework1_2.13-0.1.0-SNAPSHOT.jar[0m
+[0m[[0m[0mdebug[0m] [0m[0mPackaging /Users/jonathanhung/uic-code/cs441/homework1/target/scala-2.13/homework1_2.13-0.1.0-SNAPSHOT.jar ...[0m
+[0m[[0m[0mdebug[0m] [0m[0mInput file mappings:[0m
+[0m[[0m[0mdebug[0m] [0m[0m	Word2VecDriver$.class[0m
+[0m[[0m[0mdebug[0m] [0m[0m	  /Users/jonathanhung/uic-code/cs441/homework1/target/scala-2.13/classes/Word2VecDriver$.class[0m
+[0m[[0m[0mdebug[0m] [0m[0m	MapReduceProgram$Map.class[0m
+[0m[[0m[0mdebug[0m] [0m[0m	  /Users/jonathanhung/uic-code/cs441/homework1/target/scala-2.13/classes/MapReduceProgram$Map.class[0m
+[0m[[0m[0mdebug[0m] [0m[0m	MapWord2Vec.class[0m
+[0m[[0m[0mdebug[0m] [0m[0m	  /Users/jonathanhung/uic-code/cs441/homework1/target/scala-2.13/classes/MapWord2Vec.class[0m
+[0m[[0m[0mdebug[0m] [0m[0m	input[0m
+[0m[[0m[0mdebug[0m] [0m[0m	  /Users/jonathanhung/uic-code/cs441/homework1/target/scala-2.13/classes/input[0m
+[0m[[0m[0mdebug[0m] [0m[0m	input/content.txt[0m
+[0m[[0m[0mdebug[0m] [0m[0m	  /Users/jonathanhung/uic-code/cs441/homework1/target/scala-2.13/classes/input/content.txt[0m
+[0m[[0m[0mdebug[0m] [0m[0m	ReduceWord2Vec.class[0m
+[0m[[0m[0mdebug[0m] [0m[0m	  /Users/jonathanhung/uic-code/cs441/homework1/target/scala-2.13/classes/ReduceWord2Vec.class[0m
+[0m[[0m[0mdebug[0m] [0m[0m	Word2VecDriver.class[0m
+[0m[[0m[0mdebug[0m] [0m[0m	  /Users/jonathanhung/uic-code/cs441/homework1/target/scala-2.13/classes/Word2VecDriver.class[0m
+[0m[[0m[0mdebug[0m] [0m[0m	MapReduceProgram$.class[0m
+[0m[[0m[0mdebug[0m] [0m[0m	  /Users/jonathanhung/uic-code/cs441/homework1/target/scala-2.13/classes/MapReduceProgram$.class[0m
+[0m[[0m[0mdebug[0m] [0m[0m	MapReduceProgram$Reduce.class[0m
+[0m[[0m[0mdebug[0m] [0m[0m	  /Users/jonathanhung/uic-code/cs441/homework1/target/scala-2.13/classes/MapReduceProgram$Reduce.class[0m
+[0m[[0m[0mdebug[0m] [0m[0m	MapReduceProgram.class[0m
+[0m[[0m[0mdebug[0m] [0m[0m	  /Users/jonathanhung/uic-code/cs441/homework1/target/scala-2.13/classes/MapReduceProgram.class[0m
+[0m[[0m[0mdebug[0m] [0m[0m	vector[0m
+[0m[[0m[0mdebug[0m] [0m[0m	  /Users/jonathanhung/uic-code/cs441/homework1/target/scala-2.13/classes/vector[0m
+[0m[[0m[0mdebug[0m] [0m[0m	vector/Vector.class[0m
+[0m[[0m[0mdebug[0m] [0m[0m	  /Users/jonathanhung/uic-code/cs441/homework1/target/scala-2.13/classes/vector/Vector.class[0m
+[0m[[0m[0mdebug[0m] [0m[0mDone packaging.[0m
