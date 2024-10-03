@@ -4,22 +4,21 @@ import org.apache.hadoop.io._
 import org.apache.hadoop.mapreduce._
 import org.apache.hadoop.mapreduce.Reducer
 import org.apache.hadoop.mapreduce.Mapper
-
 import org.apache.hadoop.mapreduce.lib.input.TextInputFormat
 import org.apache.hadoop.mapreduce.lib.input.FileInputFormat
 import org.apache.hadoop.mapreduce.lib.output.TextOutputFormat
 import org.apache.hadoop.mapreduce.lib.output.FileOutputFormat
-
 import com.knuddels.jtokkit.Encodings
 import com.knuddels.jtokkit.api.EncodingType
-import org.deeplearning4j.models.word2vec.Word2Vec
+import org.deeplearning4j.models.word2vec.{Huffman, Word2Vec}
 import org.deeplearning4j.text.sentenceiterator.CollectionSentenceIterator
 import org.deeplearning4j.text.tokenization.tokenizer.preprocessor.CommonPreprocessor
 import org.deeplearning4j.text.tokenization.tokenizerfactory.DefaultTokenizerFactory
 import org.deeplearning4j.text.tokenization.tokenizerfactory.TokenizerFactory
-
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
+import com.typesafe.config.ConfigFactory
+
 
 import scala.jdk.CollectionConverters._
 import scala.collection.mutable.Set
@@ -67,9 +66,10 @@ class DoubleArrayWritable() extends Writable {
  * reducer each word with its tokenized version and its vector in the model as key: (word, token) and value: (vector)
  */
 class MapperWord2Vec extends Mapper[LongWritable, Text, Text, DoubleArrayWritable] {
-  val registry = Encodings.newDefaultEncodingRegistry()
-  val enc = registry.getEncoding(EncodingType.CL100K_BASE)
+  private val registry = Encodings.newDefaultEncodingRegistry()
+  private val enc = registry.getEncoding(EncodingType.CL100K_BASE)
   private val log = LoggerFactory.getLogger(classOf[MapperWord2Vec])
+  private val config = ConfigFactory.load()
 
   private val trainingSentencesList = new ListBuffer[String]()  // used to hold the training sentences
   private val wordCountMap = Map.empty[String, Int]   // map that holds the count of every word
@@ -101,15 +101,14 @@ class MapperWord2Vec extends Mapper[LongWritable, Text, Text, DoubleArrayWritabl
 
     val iter = new CollectionSentenceIterator(javaSentences)
     val t = new DefaultTokenizerFactory
-
     t.setTokenPreProcessor(new CommonPreprocessor)
     log.info("Building model....")
     val vec = new Word2Vec.Builder()
-      .minWordFrequency(1)
-      .iterations(1)
-      .layerSize(5)   // number of dimensions for each vector
-      .seed(42)
-      .windowSize(5)
+      .minWordFrequency(config.getInt("app.minWordFrequency"))
+      .iterations(config.getInt("app.iterations"))
+      .layerSize(config.getInt("app.layerSize"))   // number of dimensions for each vector
+      .seed(config.getInt("app.seed"))
+      .windowSize(config.getInt("app.windowSize"))
       .iterate(iter)
       .tokenizerFactory(t)
       .build
@@ -145,10 +144,11 @@ class MapperWord2Vec extends Mapper[LongWritable, Text, Text, DoubleArrayWritabl
 class ReducerWord2Vec extends Reducer[Text, DoubleArrayWritable, Text, Text] {
 
   private val log = LoggerFactory.getLogger(classOf[ReducerWord2Vec])
+  private val config = ConfigFactory.load()
 
   override def reduce(key: Text, values: java.lang.Iterable[DoubleArrayWritable], context: Reducer[Text, DoubleArrayWritable, Text, Text]#Context): Unit = {
     log.info(s"Reducing key: $key")
-    val vectorDimensions = 5   // used to determine how many dimensions are each vector
+    val vectorDimensions = config.getInt("app.layerSize")   // used to determine how many dimensions are each vector
     val averageValues = Array.fill(vectorDimensions)(new DoubleWritable(0.0))
 
     // vars, but they are in method scope, used to count the number of vectors for a particular key and the number of
@@ -220,8 +220,11 @@ object Word2VecDriver {
     job.setOutputFormatClass(classOf[TextOutputFormat[Text, Text]])
 
     // Specify input and output paths
-    FileInputFormat.addInputPath(job, new Path("src/main/resources/input"))
-    FileOutputFormat.setOutputPath(job, new Path("src/main/resources/output"))
+//    FileInputFormat.addInputPath(job, new Path("src/main/resources/input"))
+//    FileOutputFormat.setOutputPath(job, new Path("src/main/resources/output"))
+
+    FileInputFormat.addInputPath(job, new Path(args(0)))
+    FileOutputFormat.setOutputPath(job, new Path(args(1)))
 
     // Submit the job and wait for it to complete
     System.exit(if (job.waitForCompletion(true)) 0 else 1)
