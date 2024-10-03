@@ -63,8 +63,7 @@ class DoubleArrayWritable() extends Writable {
  * reducer each word with its tokenized version and its vector in the model as key: (word, token) and value: (vector)
  */
 class MapperWord2Vec extends Mapper[LongWritable, Text, Text, DoubleArrayWritable] {
-  private val registry = Encodings.newDefaultEncodingRegistry()
-  private val enc = registry.getEncoding(EncodingType.CL100K_BASE)
+
   private val log = LoggerFactory.getLogger(classOf[MapperWord2Vec])
   private val config = ConfigFactory.load()
 
@@ -127,7 +126,7 @@ class MapperWord2Vec extends Mapper[LongWritable, Text, Text, DoubleArrayWritabl
         log.info(s"Key: ${word} Vector: ${vector.toString} Count: ${vector.getCount}")
 
         // write to context, using key: (word, token) and value: (count, vector)
-        context.write(new Text(word + "," + enc.encode(word).get(0).toString), vector)
+        context.write(new Text(word), vector)
         log.info(s"Successfully wrote word: $word and its vector to context")
       }
     }
@@ -140,6 +139,8 @@ class MapperWord2Vec extends Mapper[LongWritable, Text, Text, DoubleArrayWritabl
  */
 class ReducerWord2Vec extends Reducer[Text, DoubleArrayWritable, Text, Text] {
 
+  private val registry = Encodings.newDefaultEncodingRegistry()
+  private val enc = registry.getEncoding(EncodingType.CL100K_BASE)
   private val log = LoggerFactory.getLogger(classOf[ReducerWord2Vec])
   private val config = ConfigFactory.load()
 
@@ -177,10 +178,10 @@ class ReducerWord2Vec extends Reducer[Text, DoubleArrayWritable, Text, Text] {
     }
 
     // write count of vectors and average vector to key
-    val averageString = averageValues.map(_.get().toString).mkString(" ") // make string of average vector
+    val averageString = averageValues.map(_.get().toString).mkString(",") // make string of average vector
     log.info(wordCount.toString + "," + averageString)
 
-    context.write(key, new Text(wordCount.toString + "," + averageString))
+    context.write(new Text(key + "," + enc.encode(key.toString).get(0).toString), new Text(wordCount.toString + "," + "[" + averageString + "]"))
   }
 }
 
@@ -191,9 +192,6 @@ object Word2VecDriver {
     val conf = new Configuration()
 
     conf.set("mapreduce.output.textoutputformat.separator", ",")
-//    conf.set("fs.defaultFS", "local")
-//    conf.set("mapreduce.job.maps", "1")
-//    conf.set("mapreduce.job.reduces", "1")
 
     val job = Job.getInstance(conf, "Word2Vec Encoding Job")
 
@@ -217,11 +215,11 @@ object Word2VecDriver {
     job.setOutputFormatClass(classOf[TextOutputFormat[Text, Text]])
 
     // Specify input and output paths
-//    FileInputFormat.addInputPath(job, new Path("src/main/resources/input"))
-//    FileOutputFormat.setOutputPath(job, new Path("src/main/resources/output"))
-
     FileInputFormat.addInputPath(job, new Path(args(0)))
     FileOutputFormat.setOutputPath(job, new Path(args(1)))
+
+//    FileInputFormat.addInputPath(job, new Path("src/main/resources/input"))
+//    FileOutputFormat.setOutputPath(job, new Path("src/main/resources/output"))
 
     // Submit the job and wait for it to complete
     System.exit(if (job.waitForCompletion(true)) 0 else 1)
