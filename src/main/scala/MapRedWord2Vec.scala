@@ -8,20 +8,17 @@ import org.apache.hadoop.mapreduce.lib.input.TextInputFormat
 import org.apache.hadoop.mapreduce.lib.input.FileInputFormat
 import org.apache.hadoop.mapreduce.lib.output.TextOutputFormat
 import org.apache.hadoop.mapreduce.lib.output.FileOutputFormat
+
 import com.knuddels.jtokkit.Encodings
 import com.knuddels.jtokkit.api.EncodingType
-import org.deeplearning4j.models.word2vec.{Huffman, Word2Vec}
+import org.deeplearning4j.models.word2vec.Word2Vec
 import org.deeplearning4j.text.sentenceiterator.CollectionSentenceIterator
 import org.deeplearning4j.text.tokenization.tokenizer.preprocessor.CommonPreprocessor
 import org.deeplearning4j.text.tokenization.tokenizerfactory.DefaultTokenizerFactory
-import org.deeplearning4j.text.tokenization.tokenizerfactory.TokenizerFactory
-import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 import com.typesafe.config.ConfigFactory
 
-
 import scala.jdk.CollectionConverters._
-import scala.collection.mutable.Set
 import scala.collection.mutable.Map
 import scala.collection.mutable.ListBuffer
 import java.io.{DataInput, DataOutput}

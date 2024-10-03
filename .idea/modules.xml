@@ -2,8 +2,8 @@
 <project version="4">
   <component name="ProjectModuleManager">
     <modules>
-      <module fileurl="file://$PROJECT_DIR$/.idea/modules/homework1.iml" filepath="$PROJECT_DIR$/.idea/modules/homework1.iml" />
-      <module fileurl="file://$PROJECT_DIR$/.idea/modules/homework1.homework1-build.iml" filepath="$PROJECT_DIR$/.idea/modules/homework1.homework1-build.iml" />
+      <module fileurl="file://$PROJECT_DIR$/.idea/modules/homework1mapreduce.iml" filepath="$PROJECT_DIR$/.idea/modules/homework1mapreduce.iml" />
+      <module fileurl="file://$PROJECT_DIR$/.idea/modules/homework1mapreduce.homework1mapreduce-build.iml" filepath="$PROJECT_DIR$/.idea/modules/homework1mapreduce.homework1mapreduce-build.iml" />
     </modules>
   </component>
 </project>

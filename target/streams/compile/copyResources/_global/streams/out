@@ -1,4 +1,5 @@
 [0m[[0m[0mdebug[0m] [0m[0mCopy resource mappings: [0m
+[0m[[0m[0mdebug[0m] [0m[0m	(/Users/jonathanhung/uic-code/cs441/homework1/src/main/resources/application.conf,/Users/jonathanhung/uic-code/cs441/homework1/target/scala-2.13/classes/application.conf)[0m
 [0m[[0m[0mdebug[0m] [0m[0m	(/Users/jonathanhung/uic-code/cs441/homework1/src/main/resources/input/content.txt,/Users/jonathanhung/uic-code/cs441/homework1/target/scala-2.13/classes/input/content.txt)[0m
 [0m[[0m[0mdebug[0m] [0m[0m	(/Users/jonathanhung/uic-code/cs441/homework1/src/main/resources/input/other_data.txt,/Users/jonathanhung/uic-code/cs441/homework1/target/scala-2.13/classes/input/other_data.txt)[0m
 [0m[[0m[0mdebug[0m] [0m[0m	(/Users/jonathanhung/uic-code/cs441/homework1/src/main/resources/input/data.txt,/Users/jonathanhung/uic-code/cs441/homework1/target/scala-2.13/classes/input/data.txt)[0m

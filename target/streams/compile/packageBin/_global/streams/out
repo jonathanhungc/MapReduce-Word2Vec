@@ -1,4 +1,4 @@
-[0m[[0m[0mdebug[0m] [0m[0mPackaging /Users/jonathanhung/uic-code/cs441/homework1/target/scala-2.13/homework1_2.13-0.1.0-SNAPSHOT.jar ...[0m
+[0m[[0m[0mdebug[0m] [0m[0mPackaging /Users/jonathanhung/uic-code/cs441/homework1/target/scala-2.13/homework1mapreduce_2.13-0.1.0-SNAPSHOT.jar ...[0m
 [0m[[0m[0mdebug[0m] [0m[0mInput file mappings:[0m
 [0m[[0m[0mdebug[0m] [0m[0m	Word2VecDriver$.class[0m
 [0m[[0m[0mdebug[0m] [0m[0m	  /Users/jonathanhung/uic-code/cs441/homework1/target/scala-2.13/classes/Word2VecDriver$.class[0m
@@ -16,10 +16,8 @@
 [0m[[0m[0mdebug[0m] [0m[0m	  /Users/jonathanhung/uic-code/cs441/homework1/target/scala-2.13/classes/input/data.txt[0m
 [0m[[0m[0mdebug[0m] [0m[0m	Word2VecDriver.class[0m
 [0m[[0m[0mdebug[0m] [0m[0m	  /Users/jonathanhung/uic-code/cs441/homework1/target/scala-2.13/classes/Word2VecDriver.class[0m
+[0m[[0m[0mdebug[0m] [0m[0m	application.conf[0m
+[0m[[0m[0mdebug[0m] [0m[0m	  /Users/jonathanhung/uic-code/cs441/homework1/target/scala-2.13/classes/application.conf[0m
 [0m[[0m[0mdebug[0m] [0m[0m	ReducerWord2Vec.class[0m
 [0m[[0m[0mdebug[0m] [0m[0m	  /Users/jonathanhung/uic-code/cs441/homework1/target/scala-2.13/classes/ReducerWord2Vec.class[0m
-[0m[[0m[0mdebug[0m] [0m[0m	vector[0m
-[0m[[0m[0mdebug[0m] [0m[0m	  /Users/jonathanhung/uic-code/cs441/homework1/target/scala-2.13/classes/vector[0m
-[0m[[0m[0mdebug[0m] [0m[0m	vector/Vector.class[0m
-[0m[[0m[0mdebug[0m] [0m[0m	  /Users/jonathanhung/uic-code/cs441/homework1/target/scala-2.13/classes/vector/Vector.class[0m
 [0m[[0m[0mdebug[0m] [0m[0mDone packaging.[0m
