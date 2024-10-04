@@ -39,6 +39,10 @@ lazy val root = (project in file("."))
 
     libraryDependencies += "org.deeplearning4j" % "deeplearning4j-nlp" % "1.0.0-M2.1",
 
-    libraryDependencies += "org.nd4j" % "nd4j-native-platform" % "1.0.0-M2.1"
+    libraryDependencies += "org.nd4j" % "nd4j-native-platform" % "1.0.0-M2.1",
+
+    libraryDependencies += "org.scalatest" %% "scalatest" % "3.2.19" % "test",
+
+    libraryDependencies += "org.mockito" % "mockito-core" % "3.12.4" % "test"
   )
 

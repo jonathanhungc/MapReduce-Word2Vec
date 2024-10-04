@@ -31,13 +31,13 @@ class DoubleArrayWritable() extends Writable {
   // these are vars, but they are not mutated for any object except when initialized and could be problematic do deserialize
   // if they where vals
   private var vector: ArrayWritable = new ArrayWritable(classOf[DoubleWritable])
-  private var count: IntWritable = new IntWritable()
+  private val count: IntWritable = new IntWritable(-1)
 
   // constructor to initialize fields
   def this(values: Array[Double], count: Int) = {
     this()
     this.vector = new ArrayWritable(classOf[DoubleWritable], values.map(new DoubleWritable(_)))
-    this.count = new IntWritable(count)
+    this.count.set(count)
   }
 
   // write method for serialization
@@ -61,44 +61,65 @@ class DoubleArrayWritable() extends Writable {
  * MapWord2Vec class contains the logic to perform map operations over input text data. It takes text data,
  * counts the number or times a word appears, creates a Word2Vec model with the input text, and sends to the
  * reducer each word with its tokenized version and its vector in the model as key: (word, token) and value: (vector)
+ * The Mapper takes care of doing the word counting for each word given from the input.
  */
 class MapperWord2Vec extends Mapper[LongWritable, Text, Text, DoubleArrayWritable] {
 
-  private val log = LoggerFactory.getLogger(classOf[MapperWord2Vec])
-  private val config = ConfigFactory.load()
+  private val log = LoggerFactory.getLogger(classOf[MapperWord2Vec])  // logger
+  private val config = ConfigFactory.load() // config file
 
-  private val trainingSentencesList = new ListBuffer[String]()  // used to hold the training sentences
-  private val wordCountMap = Map.empty[String, Int]   // map that holds the count of every word
+  // this ListBuffer is mutable, and is used to store all the sentences for the training. Since the training for
+  // my model happens in cleanup(), I needed to accumulate the training sentences that are processed by all the map()
+  // calls, so I can feed them all to the Word2Vec model. I thought about training the model on the go, as map()
+  // was called to process the sentences and pass those sentences directly for training, but I wasn't allowed to do
+  // that using DeepLearning4j Word2Vec
+  private val trainingSentencesList = new ListBuffer[String]()
 
+  // this is a mutable map. I use it to hold all the words that come from the sentences that the mapper takes. I need
+  // this map, so that I can store all the different words that come from input and store their counts. I know this
+  // is not the most optimal solution, since it can ultimately cause race conditions. I hope to check in the future
+  // with the professor about how I could improve or change this
+  private val wordCountMap = Map.empty[String, Int]
   /**
    * map() takes a line of text, and for each word it creates its token and gets the count (number of times it appears)
    */
   override def map(key: LongWritable, value: Text, context: Mapper[LongWritable, Text, Text, DoubleArrayWritable]#Context): Unit = {
-    val line: String = value.toString.toLowerCase
-    val words = line.split("\\W+").filter(_.nonEmpty)
+    try {
+      val line: String = value.toString.toLowerCase
+      val words = line.split("\\W+").filter(word => word.nonEmpty && word.forall(_.isLetter))
 
-    // loop through each word in the line, and add count of word to map. Key is (word,token) and value is count
-    words.foreach { word =>
-      wordCountMap.updateWith(word) {
-        case Some(count) => Some(count + 1) // Increment the count if the word is already in the map
-        case None => Some(1) // Initialize with 1 if the word is not in the map
+      log.info(s"map() - Adding line: ${line}")
+      trainingSentencesList += line   // add line of text for later training
+
+      words.foreach { word =>
+        wordCountMap.updateWith(word) {
+          case Some(count) => Some(count + 1) // increment the count if the word is already in the map
+          case None => Some(1) // initialize with 1 if the word is not in the map
+        }
       }
+    } catch {
+      case e: Exception =>
+        log.error("map() - Error during map execution", e)
+        throw e  // rethrow error
     }
-    trainingSentencesList += line // adding line sentence to set for later training
   }
 
   /**
    * cleanup() creates the Word2Vec model, trains it using the trainingSentencesList. Also, it takes each word,
    * gets its vector representation for the model, and writes to context with key: (word, token) and value: (count, vector)
+   * This function generates the Word2Vec model, and writes to context the word with its number of occurrences and
+   * its vector representation in the model.
    */
   override def cleanup(context: Mapper[LongWritable, Text, Text, DoubleArrayWritable]#Context): Unit = {
 
     val javaSentences: java.util.Collection[String] = trainingSentencesList.asJava
 
+    //log.info(s"cleanup() - The training sentences: ${trainingSentencesList}")
+
     val iter = new CollectionSentenceIterator(javaSentences)
     val t = new DefaultTokenizerFactory
     t.setTokenPreProcessor(new CommonPreprocessor)
-    log.info("Building model....")
+    log.info("cleanup() - Building model....")
     val vec = new Word2Vec.Builder()
       .minWordFrequency(config.getInt("app.minWordFrequency"))
       .iterations(config.getInt("app.iterations"))
@@ -109,25 +130,25 @@ class MapperWord2Vec extends Mapper[LongWritable, Text, Text, DoubleArrayWritabl
       .tokenizerFactory(t)
       .build
 
-    log.info("Fitting Word2Vec model....")
+    log.info("cleanup() - Fitting Word2Vec model....")
     vec.fit()
 
-    wordCountMap.foreach { case (word, count) =>
+    wordCountMap.foreach { case (word, count) =>  // for each word in the map, which holds all the words
 
-      log.info("Working on word: " + word)
+      log.info("cleanup() - Getting vector for word: " + word)
 
       val vectorArr: Array[Double] = vec.getWordVector(word)    // get vector for word from model
 
       if (vectorArr == null) {
-        log.warn(s"No vector found for word: ${word}")
+        log.warn(s"cleanup() - No vector found for word: ${word}")
       } else {
 
         val vector = new DoubleArrayWritable(vectorArr, count)  // create DoubleArrayWritable for a word
-        log.info(s"Key: ${word} Vector: ${vector.toString} Count: ${vector.getCount}")
+        //log.info(s"cleanup() - Key: ${word} Vector: ${vector.getVector.mkString("Array(", ", ", ")")} Count: ${count}")
 
         // write to context, using key: (word, token) and value: (count, vector)
         context.write(new Text(word), vector)
-        log.info(s"Successfully wrote word: $word and its vector to context")
+        log.info(s"cleanup() - Successfully wrote: $word and its vector to context")
       }
     }
   }
@@ -145,46 +166,57 @@ class ReducerWord2Vec extends Reducer[Text, DoubleArrayWritable, Text, Text] {
   private val config = ConfigFactory.load()
 
   override def reduce(key: Text, values: java.lang.Iterable[DoubleArrayWritable], context: Reducer[Text, DoubleArrayWritable, Text, Text]#Context): Unit = {
-    log.info(s"Reducing key: $key")
+    log.info(s"reduce() - Reducing key: $key")
     val vectorDimensions = config.getInt("app.layerSize")   // used to determine how many dimensions are each vector
     val averageValues = Array.fill(vectorDimensions)(new DoubleWritable(0.0))
 
     // vars, but they are in method scope, used to count the number of vectors for a particular key and the number of
     // occurrences. It shouldn't cause problems since they are used only inside the reduce() method.
-    var vectorCount = 0
-    var wordCount = 0
+    var vectorCount = 0   // to store the number of vectors for a particular word
+    var wordCount = 0   // to store the number of occurrences for a particular word
 
     values.asScala.foreach { wordVector =>
 
-      // get array from values, and cast to array of DoubleWritable
-      log.info("Received DoubleArrayWritable: " + wordVector.toString)
-      val doubleArray = wordVector.getVector.map(_.asInstanceOf[DoubleWritable].get())
-      log.info(doubleArray.mkString("Array(", ", ", ")"))
+      try {
+        // get array from values, and cast to array of DoubleWritable
+        log.info(s"reduce() - Received DoubleArrayWritable with vector: ${wordVector.toString}")
+        val doubleArray = wordVector.getVector.map(_.asInstanceOf[DoubleWritable].get())    // convert to array
+        log.info(s"reduce() - Key: ${key} Vector: ${wordVector.getVector.mkString("Array(", ", ", ")")}")
 
-      // add each value to average vector
-      doubleArray.zipWithIndex.foreach { case (number, index) =>
-        val updatedValue = averageValues(index).get() + number // add values from each vector
-        averageValues(index).set(updatedValue) // update the value
+        // add each value to average vector
+        doubleArray.zipWithIndex.foreach { case (number, index) =>
+          val updatedValue = averageValues(index).get() + number // add values from each vector
+          averageValues(index).set(updatedValue) // update the value
+        }
+
+        vectorCount += 1    // update number of vectors
+        wordCount += wordVector.getCount    // update number of count
+      } catch {
+        case e: Exception =>
+          log.error("reduce() - Error during reduce execution", e)
+          throw e  // rethrow error
       }
-      vectorCount += 1
-      wordCount += wordVector.getCount
     }
 
-    log.info(s"Number of vectors: ${vectorCount}")
+    log.info(s"reduce() - Key: ${key} Number of vectors: ${vectorCount} Word count: ${wordCount}")
 
     // calculate average for each number in average vector
-    averageValues.foreach { vectorNumber =>
-      vectorNumber.set(vectorNumber.get() / vectorCount)
-    }
+    averageValues.foreach(vectorNumber => vectorNumber.set(vectorNumber.get() / vectorCount))
 
-    // write count of vectors and average vector to key
+    // write count of vectors and average vector to key (the word and its token)
     val averageString = averageValues.map(_.get().toString).mkString(",") // make string of average vector
-    log.info(wordCount.toString + "," + averageString)
 
+    log.info(s"reduce() - Writing: ${key} Count: ${wordCount} Vector: [" + averageString + "]")
     context.write(new Text(key + "," + enc.encode(key.toString).get(0).toString), new Text(wordCount.toString + "," + "[" + averageString + "]"))
+    log.info(s"reduce() - Successfully wrote ${key} to context")
+
   }
 }
 
+/**
+ * This is the driver for the program. It sets the configuration for the MapReduce job. Input and output
+ * paths are given as command line arguments
+ */
 object Word2VecDriver {
   def main(args: Array[String]): Unit = {
 
@@ -195,33 +227,33 @@ object Word2VecDriver {
 
     val job = Job.getInstance(conf, "Word2Vec Encoding Job")
 
-    // Set the jar class (main class for the program)
+    // set the jar class (main class for the program)
     job.setJarByClass(Word2VecDriver.getClass)
 
-    // Set Mapper and Reducer classes
+    // set Mapper and Reducer classes
     job.setMapperClass(classOf[MapperWord2Vec])
     job.setReducerClass(classOf[ReducerWord2Vec])
 
-    // Set mapper key and value class
+    // Sset mapper key and value class
     job.setMapOutputKeyClass(classOf[Text])
     job.setMapOutputValueClass(classOf[DoubleArrayWritable])
 
-    // Set output key and value types
+    // set output key and value types
     job.setOutputKeyClass(classOf[Text])
     job.setOutputValueClass(classOf[Text])
 
-    // Set the input and output formats
+    // set the input and output formats
     job.setInputFormatClass(classOf[TextInputFormat])
     job.setOutputFormatClass(classOf[TextOutputFormat[Text, Text]])
 
-    // Specify input and output paths
+    // specify input and output paths
     FileInputFormat.addInputPath(job, new Path(args(0)))
     FileOutputFormat.setOutputPath(job, new Path(args(1)))
 
 //    FileInputFormat.addInputPath(job, new Path("src/main/resources/input"))
 //    FileOutputFormat.setOutputPath(job, new Path("src/main/resources/output"))
 
-    // Submit the job and wait for it to complete
+    // submit the job and wait for it to complete
     System.exit(if (job.waitForCompletion(true)) 0 else 1)
 
   }
