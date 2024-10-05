@@ -25,7 +25,8 @@ import java.io.{DataInput, DataOutput}
 
 /**
  * DoubleArrayWritable is used to represent the number of times a word appears (count), and its vector
- * representation (vector). This class is used for communication between the mapper and the reducer
+ * representation (vector). This class is used for communication between the mapper and the reducer.
+ * It extends Writable for serialization.
  */
 class DoubleArrayWritable() extends Writable {
   // these are vars, but they are not mutated for any object except when initialized and could be problematic do deserialize
@@ -65,23 +66,35 @@ class DoubleArrayWritable() extends Writable {
  */
 class MapperWord2Vec extends Mapper[LongWritable, Text, Text, DoubleArrayWritable] {
 
+  private val registry = Encodings.newDefaultEncodingRegistry()
+  private val enc = registry.getEncoding(EncodingType.CL100K_BASE)
   private val log = LoggerFactory.getLogger(classOf[MapperWord2Vec])  // logger
   private val config = ConfigFactory.load() // config file
 
   // this ListBuffer is mutable, and is used to store all the sentences for the training. Since the training for
   // my model happens in cleanup(), I needed to accumulate the training sentences that are processed by all the map()
-  // calls, so I can feed them all to the Word2Vec model. I thought about training the model on the go, as map()
-  // was called to process the sentences and pass those sentences directly for training, but I wasn't allowed to do
-  // that using DeepLearning4j Word2Vec
+  // calls, so I can feed them all to the Word2Vec model. I thought about training the model on the go, using the text
+  // from each map() call and pass those sentences directly for training, but I wasn't allowed to do that using
+  // DeepLearning4j Word2Vec. I could have created a Word2Vec model for each map() call and pass the text, but
+  // (1) it would require too much time to create all those models, and (2) each model would use fewer data for training,
+  // which would give less accurate results for the vector embeddings of words. It's not the most efficient method,
+  // since it could lead to race conditions and some sentences may not be added to the model. I would like to discuss
+  // later how this could be improved or changed.
   private val trainingSentencesList = new ListBuffer[String]()
 
   // this is a mutable map. I use it to hold all the words that come from the sentences that the mapper takes. I need
   // this map, so that I can store all the different words that come from input and store their counts. I know this
   // is not the most optimal solution, since it can ultimately cause race conditions. I hope to check in the future
-  // with the professor about how I could improve or change this
+  // with the professor about how I could improve or change this.
   private val wordCountMap = Map.empty[String, Int]
+
   /**
-   * map() takes a line of text, and for each word it creates its token and gets the count (number of times it appears)
+   * map() takes lines of text, parses them by taking and separating the words, and for each word it counts the
+   * number of times it appears and stores it. It doesn't write anything to context, that happens in cleanup(). Also,
+   * it adds the lines of text to trainingSentencesList, which is used later for training.
+   * @param key   Number of the line in the text
+   * @param value   A line of text
+   * @param context   The context to write to
    */
   override def map(key: LongWritable, value: Text, context: Mapper[LongWritable, Text, Text, DoubleArrayWritable]#Context): Unit = {
     try {
@@ -105,17 +118,24 @@ class MapperWord2Vec extends Mapper[LongWritable, Text, Text, DoubleArrayWritabl
   }
 
   /**
-   * cleanup() creates the Word2Vec model, trains it using the trainingSentencesList. Also, it takes each word,
-   * gets its vector representation for the model, and writes to context with key: (word, token) and value: (count, vector)
-   * This function generates the Word2Vec model, and writes to context the word with its number of occurrences and
-   * its vector representation in the model.
+   * cleanup() creates the Word2Vec model, trains it using the trainingSentencesList. Also, it takes each word, creates
+   * its token representation, gets its vector representation for the model, and writes to context with
+   * key: (word, token) and value: (count, vector). This function generates the Word2Vec model, and writes to context
+   * the word with its number of occurrences and  its vector representation in the model. I thought about getting the
+   * token each word (using JTokkit) using the reducer and not here, since in the reducing stage a word would be
+   * tokenized only once, while here would happen multiple times (since there are multiple mappers that would deal with
+   * repeated words) but I decided to do it here since in MapReduce implementations usually run more mappers than
+   * reducers (num mappers > num reducers). It would be a balance between more mappers performing more operations
+   * of tokenization, or fewer reducers performing fewer operations of tokenization.
+   * @param context The context to write to with key: (word, token) and value: (count, vector)
    */
   override def cleanup(context: Mapper[LongWritable, Text, Text, DoubleArrayWritable]#Context): Unit = {
 
-    val javaSentences: java.util.Collection[String] = trainingSentencesList.asJava
+    val javaSentences: java.util.Collection[String] = trainingSentencesList.asJava  // get iterator for training sentences
 
     //log.info(s"cleanup() - The training sentences: ${trainingSentencesList}")
 
+    // setting up everything for the Word2Vec model
     val iter = new CollectionSentenceIterator(javaSentences)
     val t = new DefaultTokenizerFactory
     t.setTokenPreProcessor(new CommonPreprocessor)
@@ -147,7 +167,7 @@ class MapperWord2Vec extends Mapper[LongWritable, Text, Text, DoubleArrayWritabl
         //log.info(s"cleanup() - Key: ${word} Vector: ${vector.getVector.mkString("Array(", ", ", ")")} Count: ${count}")
 
         // write to context, using key: (word, token) and value: (count, vector)
-        context.write(new Text(word), vector)
+        context.write(new Text(word + "," + enc.encode(word).get(0).toString), vector)
         log.info(s"cleanup() - Successfully wrote: $word and its vector to context")
       }
     }
@@ -160,11 +180,16 @@ class MapperWord2Vec extends Mapper[LongWritable, Text, Text, DoubleArrayWritabl
  */
 class ReducerWord2Vec extends Reducer[Text, DoubleArrayWritable, Text, Text] {
 
-  private val registry = Encodings.newDefaultEncodingRegistry()
-  private val enc = registry.getEncoding(EncodingType.CL100K_BASE)
   private val log = LoggerFactory.getLogger(classOf[ReducerWord2Vec])
   private val config = ConfigFactory.load()
 
+  /**
+   * reduce() takes a key, and iterable of DoubleArrayWritable objects, and sums the counts of each object to get the
+   * total count (number of occurrences) for each word, and takes all the vectors from the iterable to average them.
+   * @param key   A word, with its token representation
+   * @param values    An iterable of DoubleArrayWritable objects
+   * @param context   A context to write to with key: (word, token) and value: (total count, average vector)
+   */
   override def reduce(key: Text, values: java.lang.Iterable[DoubleArrayWritable], context: Reducer[Text, DoubleArrayWritable, Text, Text]#Context): Unit = {
     log.info(s"reduce() - Reducing key: $key")
     val vectorDimensions = config.getInt("app.layerSize")   // used to determine how many dimensions are each vector
@@ -207,7 +232,7 @@ class ReducerWord2Vec extends Reducer[Text, DoubleArrayWritable, Text, Text] {
     val averageString = averageValues.map(_.get().toString).mkString(",") // make string of average vector
 
     log.info(s"reduce() - Writing: ${key} Count: ${wordCount} Vector: [" + averageString + "]")
-    context.write(new Text(key + "," + enc.encode(key.toString).get(0).toString), new Text(wordCount.toString + "," + "[" + averageString + "]"))
+    context.write(key, new Text(wordCount.toString + "," + "[" + averageString + "]"))
     log.info(s"reduce() - Successfully wrote ${key} to context")
 
   }

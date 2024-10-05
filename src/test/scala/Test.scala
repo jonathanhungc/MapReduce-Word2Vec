@@ -57,6 +57,9 @@ class DoubleArrayWritableTest extends AnyFlatSpec {
  */
 class MapperWord2VecTest extends AnyFlatSpec {
 
+  private val registry = Encodings.newDefaultEncodingRegistry()
+  private val enc = registry.getEncoding(EncodingType.CL100K_BASE)
+
   // checking the core functionality of the map() function
   "MapperWord2Vec" should "process a line of text and add it for training" in {
     val mapper = new MapperWord2Vec()
@@ -69,9 +72,12 @@ class MapperWord2VecTest extends AnyFlatSpec {
     mapper.cleanup(context)
 
     // verify if the cleanup function has trained the model and called context.write
-    verify(context, atLeastOnce()).write(org.mockito.ArgumentMatchers.eq(new Text("hello")), any[DoubleArrayWritable])
-    verify(context, atLeastOnce()).write(org.mockito.ArgumentMatchers.eq(new Text("world")), any[DoubleArrayWritable])
-    verify(context, atLeastOnce()).write(org.mockito.ArgumentMatchers.eq(new Text("test")), any[DoubleArrayWritable])
+    verify(context, atLeastOnce()).write(org.mockito.ArgumentMatchers.eq(new Text("hello," +
+      enc.encode("hello").get(0).toString)), any[DoubleArrayWritable])
+    verify(context, atLeastOnce()).write(org.mockito.ArgumentMatchers.eq(new Text("world," +
+      enc.encode("world").get(0).toString)), any[DoubleArrayWritable])
+    verify(context, atLeastOnce()).write(org.mockito.ArgumentMatchers.eq(new Text("test," +
+      enc.encode("test").get(0).toString)), any[DoubleArrayWritable])
   }
 
   // checking the functionality of repeated words
@@ -86,10 +92,14 @@ class MapperWord2VecTest extends AnyFlatSpec {
     mapper.cleanup(context)
 
     // verify that everything was written just once,
-    verify(context, times(1)).write(org.mockito.ArgumentMatchers.eq(new Text("hello")), any[DoubleArrayWritable])
-    verify(context, times(1)).write(org.mockito.ArgumentMatchers.eq(new Text("world")), any[DoubleArrayWritable])
-    verify(context, times(1)).write(org.mockito.ArgumentMatchers.eq(new Text("test")), any[DoubleArrayWritable])
-    verify(context, never()).write(org.mockito.ArgumentMatchers.eq(new Text("nope")), any[DoubleArrayWritable]) // shouldn't write
+    verify(context, times(1)).write(org.mockito.ArgumentMatchers.eq(new Text("hello," +
+      enc.encode("hello").get(0).toString)), any[DoubleArrayWritable])
+    verify(context, times(1)).write(org.mockito.ArgumentMatchers.eq(new Text("world," +
+      enc.encode("world").get(0).toString)), any[DoubleArrayWritable])
+    verify(context, times(1)).write(org.mockito.ArgumentMatchers.eq(new Text("test," +
+      enc.encode("test").get(0).toString)), any[DoubleArrayWritable])
+    verify(context, never()).write(org.mockito.ArgumentMatchers.eq(new Text("error," +
+      enc.encode("error").get(0).toString)), any[DoubleArrayWritable]) // shouldn't write
   }
 }
 
@@ -108,8 +118,8 @@ class ReducerWord2VecTest extends AnyFlatSpec {
     val reducer = new ReducerWord2Vec()
     val context = mock(classOf[Reducer[Text, DoubleArrayWritable, Text, Text]#Context])
 
-    val textString = "test"
-    val text = new Text(textString)
+    val textString = "test," + enc.encode("test").get(0).toString   // this is how keys look when coming from the mapper
+    val key = new Text(textString)
 
     // creating input arrays. Each pair or numbers sums to 0.9 (0.4 + 0.5). It uses 10 numbers, considering
     // that each vector as 10 dimensions (this can be configured in the program, in the config file)
@@ -117,12 +127,11 @@ class ReducerWord2VecTest extends AnyFlatSpec {
     val array2 = new DoubleArrayWritable(Array(0.4, 0.5, 0.5, 0.5, 0.4, 0.5, 0.4, 0.4, 0.4, 0.5), 2)
     val inputValues: JList[DoubleArrayWritable] = List(array1, array2).asJava   // create iterable for objects
 
-    // call reduce() to write to context
-    reducer.reduce(text, inputValues, context)
+    // call reduce() to write to context, should average vectors from inputValues
+    reducer.reduce(key, inputValues, context)
 
     // verify if the reducer gave as output the word, its token, its count, and the average vector for the word
-    verify(context, atLeastOnce()).write(org.mockito.ArgumentMatchers.eq(new Text(textString + ","
-      + enc.encode(textString).get(0).toString)),
+    verify(context, atLeastOnce()).write(org.mockito.ArgumentMatchers.eq(new Text(textString)),
       org.mockito.ArgumentMatchers.eq(new Text("5,[0.45,0.45,0.45,0.45,0.45,0.45,0.45,0.45,0.45,0.45]")))
   }
 }
