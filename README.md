@@ -21,7 +21,7 @@ to context correctly. The test file has mock contexts to test these functionalit
 - **Input**: A directory with .txt files with sentences
 - **Output**: A directory with files, after processing the text, where each entry in a file is comma separated as:
 (word,token,count,vector)
-### To run the program execute the following commands:
+### To run the program execute the following commands (you may want to delete the src/main/resources/output directory before running this):
 ```
 sbt clean
 sbt compile
