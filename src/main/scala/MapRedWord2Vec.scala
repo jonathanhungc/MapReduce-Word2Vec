@@ -275,8 +275,8 @@ object Word2VecDriver {
     FileInputFormat.addInputPath(job, new Path(args(0)))
     FileOutputFormat.setOutputPath(job, new Path(args(1)))
 
-//    FileInputFormat.addInputPath(job, new Path("src/main/resources/input"))
-//    FileOutputFormat.setOutputPath(job, new Path("src/main/resources/output"))
+    //    FileInputFormat.addInputPath(job, new Path("src/main/resources/input"))
+    //    FileOutputFormat.setOutputPath(job, new Path("src/main/resources/output"))
 
     // submit the job and wait for it to complete
     System.exit(if (job.waitForCompletion(true)) 0 else 1)
